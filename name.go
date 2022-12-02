@@ -16,69 +16,50 @@ limitations under the License.
 
 package logicalcluster
 
-import (
-	"encoding/json"
-	"path"
-	"regexp"
-	"strings"
+import "regexp"
+
+var (
+	// Wildcard is the Name indicating cross-workspace requests.
+	Wildcard = Name{"*"}
+
+	clusterNameRegExp = regexp.MustCompile(clusterNameString)
 )
 
-// ClusterHeader set to "<lcluster>" on a request is an alternative to accessing the
-// cluster via /clusters/<lcluster>. With that the <lcluster> can be access via normal kube-like
-// /api and /apis endpoints.
-const ClusterHeader = "X-Kubernetes-Cluster"
+const (
+	clusterNameString string = "^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+)
 
-// Name is the name of a logical cluster. A logical cluster is
-// 1. a (part of) etcd prefix to store objects in that cluster
-// 2. a (part of) a http path which serves a Kubernetes-cluster-like API with
-//    discovery, OpenAPI and the actual API groups.
-// 3. a value in metadata.clusterName in objects from cross-workspace list/watches,
-//    which is used to identify the logical cluster.
-//
-// A logical cluster is a colon separated list of words. In other words, it is
-// like a path, but with colons instead of slashes.
+// Name represent a cluster name. A cluster name
+// 1. can be used to access a cluster via `/cluster/<cluster-name>`
+// 2. is part of an etcd key path
+// 3. is used to uniquely reference a logical cluster. There is at most one cluster name for a logical cluster, but many logical cluster string can point to the same cluster name.
 type Name struct {
 	value string
 }
 
-const separator = ":"
-
-var (
-	// Wildcard is the name indicating cross-workspace requests.
-	Wildcard = New("*")
-
-	// None is the name indicating a cluster-unaware context.
-	None = New("")
-
-	// TODO is a value created by automated refactoring tools that should be replaced by a real Name.
-	TODO = None
-)
-
-// New returns a Name from a string.
-func New(value string) Name {
+// NewName returns a Name from a string.
+func NewName(value string) Name {
 	return Name{value}
 }
 
-// NewValidated returns a Name from a string and whether it is a valid logical cluster.
-// A valid logical cluster returns true on IsValid().
-func NewValidated(value string) (Name, bool) {
-	n := Name{value}
-	return n, n.IsValid()
+// Path returns a Path (a logical cluster) out of the Name
+func (n Name) Path() Path {
+	return New(n.value)
 }
 
-// Empty returns true if the logical cluster value is unset.
-func (n Name) Empty() bool {
-	return n.value == ""
-}
-
-// Path returns a path segment for the logical cluster to access its API.
-func (n Name) Path() string {
-	return path.Join("/clusters", n.value)
-}
-
-// String returns the string representation of the logical cluster name.
+// String returns the string representation of the cluster name.
 func (n Name) String() string {
 	return n.value
+}
+
+// IsValid returns true if the name is a Wildcard starts with a lower-case letter and contains only lower-case letters, digits and hyphens.
+func (n Name) IsValid() bool {
+	return n.value == "*" || clusterNameRegExp.MatchString(n.value)
+}
+
+// Empty returns true if the cluster name is unset.
+func (n Name) Empty() bool {
+	return n.value == ""
 }
 
 // Object is a local interface representation of the Kubernetes metav1.Object, to avoid dependencies on
@@ -93,63 +74,4 @@ const AnnotationKey = "kcp.dev/cluster"
 // From returns the logical cluster name for obj.
 func From(obj Object) Name {
 	return Name{obj.GetAnnotations()[AnnotationKey]}
-}
-
-// Parent returns the parent logical cluster name of the given logical cluster name.
-func (n Name) Parent() (Name, bool) {
-	parent, _ := n.Split()
-	return parent, parent.value != ""
-}
-
-// Split splits logical cluster immediately following the final colon,
-// separating it into a parent logical cluster and name component.
-// If there is no colon in path, Split returns an empty logical cluster name
-// and name set to path.
-func (n Name) Split() (parent Name, name string) {
-	i := strings.LastIndex(n.value, separator)
-	if i < 0 {
-		return Name{}, n.value
-	}
-	return Name{n.value[:i]}, n.value[i+1:]
-}
-
-// Base returns the last component of the logical cluster name.
-func (n Name) Base() string {
-	_, name := n.Split()
-	return name
-}
-
-// Join joins a parent logical cluster name and a name component.
-func (n Name) Join(name string) Name {
-	if n.value == "" {
-		return Name{name}
-	}
-	return Name{n.value + separator + name}
-}
-
-func (n Name) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&n.value)
-}
-
-func (n *Name) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
-	}
-	n.value = s
-	return nil
-}
-
-func (n Name) HasPrefix(other Name) bool {
-	return strings.HasPrefix(n.value, other.value)
-}
-
-const lclusterNameFmt string = "[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
-
-var lclusterRegExp = regexp.MustCompile("^" + lclusterNameFmt + "(:" + lclusterNameFmt + ")*$")
-
-// IsValid returns true if the name is a Wildcard or a colon separated list of words where each word
-// starts with a lower-case letter and contains only lower-case letters, digits and hyphens.
-func (n Name) IsValid() bool {
-	return n == Wildcard || lclusterRegExp.MatchString(n.value)
 }

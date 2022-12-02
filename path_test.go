@@ -23,8 +23,8 @@ import (
 
 func TestName_Split(t *testing.T) {
 	tests := []struct {
-		cn     Name
-		parent Name
+		cn     Path
+		parent Path
 		name   string
 	}{
 		{New(""), New(""), ""},
@@ -48,7 +48,7 @@ func TestName_Split(t *testing.T) {
 
 func TestJSON(t *testing.T) {
 	type container struct {
-		Name Name `json:"name"`
+		Name Path `json:"name"`
 	}
 
 	initial := container{
