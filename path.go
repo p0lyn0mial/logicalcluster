@@ -71,9 +71,9 @@ func (n Path) Empty() bool {
 // Otherwise, the Path becomes a Name.
 func (n Path) Name() (Name, bool) {
 	if _, hasParent := n.Parent(); hasParent {
-		return Name{}, false
+		return "", false
 	}
-	return NewName(n.value), true
+	return Name(n.value), true
 }
 
 // RequestPath returns a path segment for the logical cluster to access its API.

@@ -33,33 +33,26 @@ const (
 // 1. can be used to access a cluster via `/cluster/<cluster-name>`
 // 2. is part of an etcd key path
 // 3. is used to uniquely reference a logical cluster. There is at most one cluster name for a logical cluster, but many logical cluster string can point to the same cluster name.
-type Name struct {
-	value string
-}
-
-// NewName returns a Name from a string.
-func NewName(value string) Name {
-	return Name{value}
-}
+type Name string
 
 // Path returns a Path (a logical cluster) out of the Name
 func (n Name) Path() Path {
-	return New(n.value)
+	return New(string(n))
 }
 
 // String returns the string representation of the cluster name.
 func (n Name) String() string {
-	return n.value
+	return string(n)
 }
 
 // IsValid returns true if the name is a Wildcard starts with a lower-case letter and contains only lower-case letters, digits and hyphens.
 func (n Name) IsValid() bool {
-	return n.value == "*" || clusterNameRegExp.MatchString(n.value)
+	return n == "*" || clusterNameRegExp.MatchString(string(n))
 }
 
 // Empty returns true if the cluster name is unset.
 func (n Name) Empty() bool {
-	return n.value == ""
+	return n == ""
 }
 
 // Object is a local interface representation of the Kubernetes metav1.Object, to avoid dependencies on
@@ -73,5 +66,5 @@ const AnnotationKey = "kcp.dev/cluster"
 
 // From returns the logical cluster name for obj.
 func From(obj Object) Name {
-	return Name{obj.GetAnnotations()[AnnotationKey]}
+	return Name(obj.GetAnnotations()[AnnotationKey])
 }
