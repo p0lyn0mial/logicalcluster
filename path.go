@@ -109,6 +109,9 @@ func (n Path) Split() (parent Path, name string) {
 	if i < 0 {
 		return Path{}, n.value
 	}
+	if n.value[:i] == "system" {
+		return Path{}, n.value
+	}
 	return Path{n.value[:i]}, n.value[i+1:]
 }
 
